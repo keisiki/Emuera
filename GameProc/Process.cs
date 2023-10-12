@@ -11,6 +11,7 @@ using MinorShift.Emuera.GameData.Variable;
 using MinorShift.Emuera.GameProc.Function;
 using MinorShift.Emuera.GameData.Function;
 using System.Threading;
+using MinorShift._Library;
 
 namespace MinorShift.Emuera.GameProc
 {
@@ -49,7 +50,7 @@ namespace MinorShift.Emuera.GameProc
 
         public bool Initialize()
 		{
-			LexicalAnalyzer.UseMacro = false;
+            LexicalAnalyzer.UseMacro = false;
             state = new ProcessState(console);
             originalState = state;
             initialiing = true;
@@ -67,14 +68,14 @@ namespace MinorShift.Emuera.GameProc
 						return false;
 					}
 				}
-				//リソースフォルダ読み込み
-				if (!Content.AppContents.LoadContents())
+                //リソースフォルダ読み込み
+                if (!Content.AppContents.LoadContents())
 				{
 					ParserMediator.FlushWarningList();
 					console.PrintSystemLine("リソースフォルダ読み込み中に異常が発見されたため処理を終了します");
 					return false;
 				}
-				ParserMediator.FlushWarningList();
+                ParserMediator.FlushWarningList();
 				//キーマクロ読み込み
                 if (Config.UseKeyMacro && !Program.AnalysisMode)
                 {

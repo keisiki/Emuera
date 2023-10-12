@@ -11,6 +11,7 @@ using MinorShift.Emuera.GameData;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Drawing.Text;
+using static MinorShift.Emuera.GameData.Function.FunctionMethodCreator;
 
 namespace MinorShift.Emuera.GameProc
 {
@@ -51,21 +52,8 @@ namespace MinorShift.Emuera.GameProc
 			try
 			{
 				labelDic.RemoveAll();
-				//for (int i = 0; i < erbFiles.Count; i++)
-				//{
-					//string filename = erbFiles[i].Key;
-					//string file = erbFiles[i].Value;
-#if DEBUG
-					//if (displayReport)
-					//	output.PrintSystemLine("経過時間:" + (WinmmTimer.TickCount - starttime).ToString("D4") + "ms:" + filename + "読み込み中・・・");
-#else
-					//if (displayReport)
-						//output.PrintSystemLine(filename + "読み込み中・・・");
-#endif
-					System.Windows.Forms.Application.DoEvents();
-                    Parallel.For(0,erbFiles.Count,(i) => loadErb(erbFiles[i].Value, erbFiles[i].Key, isOnlyEvent));
-                    //loadErb(file, filename, isOnlyEvent);
-                //}
+				System.Windows.Forms.Application.DoEvents();
+                Parallel.For(0,erbFiles.Count,(i) => loadErb(erbFiles[i].Value, erbFiles[i].Key, isOnlyEvent));
 				ParserMediator.FlushWarningList();
 #if DEBUG
 				output.PrintSystemLine("경과시간1:" + (WinmmTimer.TickCount - starttime).ToString("D4") + "ms:");
@@ -848,12 +836,11 @@ namespace MinorShift.Emuera.GameProc
 			{
 				System.Windows.Forms.Application.DoEvents();
 				string filename = label.Position.Filename.ToUpper();
-				Parallel.Invoke(() =>
-				{
-					setArgument(label);
-					nestCheck(label);
-					setJumpTo(label);
-				});
+				//setArgument(label);
+				//setJumpTo(label);
+				uniset(label);
+				//nestCheck(label);
+				
             }
 			catch (Exception exc)
 			{
@@ -895,11 +882,8 @@ namespace MinorShift.Emuera.GameProc
 						continue;
 					}
 				}
-				lock (lockobject)
-				{
-					if (Config.NeedReduceArgumentOnLoad || Program.AnalysisMode || func.Function.IsForceSetArg())
-						ArgumentParser.SetArgumentTo(func);
-				}
+				if (Config.NeedReduceArgumentOnLoad || Program.AnalysisMode || func.Function.IsForceSetArg())
+					ArgumentParser.SetArgumentTo(func);
 			}
 		}
 
@@ -955,8 +939,9 @@ namespace MinorShift.Emuera.GameProc
 				{
 					if ((baseFunc.Function.IsPrintData() || baseFunc.FunctionCode == FunctionCode.STRDATA) )
 					{
-						if ((func.FunctionCode != FunctionCode.DATA) && (func.FunctionCode != FunctionCode.DATAFORM) && (func.FunctionCode != FunctionCode.DATALIST)
-							&& (func.FunctionCode != FunctionCode.ENDLIST) && (func.FunctionCode != FunctionCode.ENDDATA))
+						if ((func.FunctionCode == FunctionCode.DATA) || (func.FunctionCode == FunctionCode.DATAFORM) || (func.FunctionCode == FunctionCode.DATALIST)
+							|| (func.FunctionCode == FunctionCode.ENDLIST) || (func.FunctionCode == FunctionCode.ENDDATA)) { }
+						else
 						{
 							ParserMediator.Warn(baseFunc.Function.Name + "構文に使用できない命令\'" + func.Function.Name + "\'が含まれています", func, 2, true, false);
 							continue;
@@ -1089,7 +1074,7 @@ namespace MinorShift.Emuera.GameProc
 					case FunctionCode.ELSE:
 						{
 							//1.725 Stack<T>.Peek()はStackが空の時はnullを返す仕様だと思いこんでおりました。
-							InstructionLine ifLine = nestStack.Count == 0 ? null : nestStack.Peek();
+							InstructionLine ifLine = baseFunc;//nestStack.Count == 0 ? null : nestStack.Peek();
 							if ((ifLine == null) || (ifLine.FunctionCode != FunctionCode.IF))
 							{
 								ParserMediator.Warn("IF～ENDIFの外で" + func.Function.Name + "文が使われました", func, 2, true, false);
@@ -1102,7 +1087,7 @@ namespace MinorShift.Emuera.GameProc
 						break;
 					case FunctionCode.ENDIF:
 						{
-							InstructionLine ifLine = nestStack.Count == 0 ? null : nestStack.Peek();
+							InstructionLine ifLine = baseFunc;// nestStack.Count == 0 ? null : nestStack.Peek();
 							if ((ifLine == null) || (ifLine.FunctionCode != FunctionCode.IF))
 							{
 								ParserMediator.Warn("対応するIFの無いENDIF文です", func, 2, true, false);
@@ -1118,8 +1103,8 @@ namespace MinorShift.Emuera.GameProc
 					case FunctionCode.CASE:
 					case FunctionCode.CASEELSE:
 						{
-							InstructionLine selectLine = nestStack.Count == 0 ? null : nestStack.Peek();
-							if ((selectLine == null) || (selectLine.FunctionCode != FunctionCode.SELECTCASE && SelectcaseStack.Count == 0))
+							InstructionLine selectLine = baseFunc;//nestStack.Count == 0 ? null : nestStack.Peek();
+                            if ((selectLine == null) || (selectLine.FunctionCode != FunctionCode.SELECTCASE && SelectcaseStack.Count == 0))
 							{
 								ParserMediator.Warn("SELECTCASE～ENDSELECTの外で" + func.Function.Name + "文が使われました", func, 2, true, false);
 								break;
@@ -1144,7 +1129,7 @@ namespace MinorShift.Emuera.GameProc
 						break;
 					case FunctionCode.ENDSELECT:
 						{
-							InstructionLine selectLine = nestStack.Count == 0 ? null : nestStack.Peek();
+							InstructionLine selectLine = baseFunc;//nestStack.Count == 0 ? null : nestStack.Peek();
 							if ((selectLine == null) || (selectLine.FunctionCode != FunctionCode.SELECTCASE && SelectcaseStack.Count == 0))
 							{
 								ParserMediator.Warn("対応するSELECTCASEの無いENDSELECT文です", func, 2, true, false);
@@ -1500,6 +1485,63 @@ namespace MinorShift.Emuera.GameProc
 					useCallForm = true;
 			}
 		}
-
-	}
+		private void uniset(FunctionLabelLine label)
+		{
+			LogicalLine nextLine = label;
+			bool inMethod = label.IsMethod;
+			int depth = label.Depth;
+			if (depth < 0)
+				depth = -2;
+			while (true)
+			{
+				nextLine = nextLine.NextLine;
+				InstructionLine func = nextLine as InstructionLine;
+				parentProcess.scaningLine = nextLine;
+				if (func == null)
+				{
+					if ((nextLine is NullLine) || (nextLine is FunctionLabelLine))
+						break;
+					continue;
+				}
+				if (inMethod)
+				{
+					if (!func.Function.IsMethodSafe())
+					{
+						ParserMediator.Warn(func.Function.Name + "命令は#FUNCTION中で使うことはできません", nextLine, 2, true, false);
+						goto gotosetJumpTo;
+					}
+				}
+				if (Config.NeedReduceArgumentOnLoad || Program.AnalysisMode || func.Function.IsForceSetArg())
+					ArgumentParser.SetArgumentTo(func);
+				//if (func.IsError)
+				//	continue;
+				gotosetJumpTo:
+				//parentProcess.scaningLine = func;
+				if (func.Function.Instruction != null)
+				{
+					string FunctionNotFoundName = null;
+					try
+					{
+						func.Function.Instruction.SetJumpTo(ref useCallForm, func, depth, ref FunctionNotFoundName);
+					}
+					catch (CodeEE e)
+					{
+						ParserMediator.Warn(e.Message, func, 2, true, false);
+						continue;
+					}
+					if (FunctionNotFoundName != null)
+					{
+						if (!Program.AnalysisMode)
+							printFunctionNotFoundWarning("指定された関数名\"@" + FunctionNotFoundName + "\"は存在しません", func, 2, true);
+						else
+							printFunctionNotFoundWarning(FunctionNotFoundName, func, 2, true);
+					}
+					continue;
+				}
+				if (!useCallForm && ((func.FunctionCode == FunctionCode.TRYCALLLIST) || (func.FunctionCode == FunctionCode.TRYJUMPLIST)))
+					useCallForm = true;
+			}
+		}
+    }
 }
+
