@@ -836,10 +836,8 @@ namespace MinorShift.Emuera.GameProc
 			{
 				System.Windows.Forms.Application.DoEvents();
 				string filename = label.Position.Filename.ToUpper();
-				//setArgument(label);
-				//setJumpTo(label);
 				uniset(label);
-				//nestCheck(label);
+				nestCheck(label);
 				
             }
 			catch (Exception exc)
@@ -1489,58 +1487,58 @@ namespace MinorShift.Emuera.GameProc
 		{
 			LogicalLine nextLine = label;
 			bool inMethod = label.IsMethod;
+			bool setArugement_flag = false;
 			int depth = label.Depth;
 			if (depth < 0)
 				depth = -2;
-			while (true)
-			{
-				nextLine = nextLine.NextLine;
-				InstructionLine func = nextLine as InstructionLine;
-				parentProcess.scaningLine = nextLine;
-				if (func == null)
-				{
-					if ((nextLine is NullLine) || (nextLine is FunctionLabelLine))
-						break;
-					continue;
-				}
-				if (inMethod)
-				{
-					if (!func.Function.IsMethodSafe())
-					{
-						ParserMediator.Warn(func.Function.Name + "命令は#FUNCTION中で使うことはできません", nextLine, 2, true, false);
-						goto gotosetJumpTo;
-					}
-				}
-				if (Config.NeedReduceArgumentOnLoad || Program.AnalysisMode || func.Function.IsForceSetArg())
-					ArgumentParser.SetArgumentTo(func);
-				//if (func.IsError)
-				//	continue;
-				gotosetJumpTo:
-				//parentProcess.scaningLine = func;
-				if (func.Function.Instruction != null)
-				{
-					string FunctionNotFoundName = null;
-					try
-					{
-						func.Function.Instruction.SetJumpTo(ref useCallForm, func, depth, ref FunctionNotFoundName);
-					}
-					catch (CodeEE e)
-					{
-						ParserMediator.Warn(e.Message, func, 2, true, false);
-						continue;
-					}
-					if (FunctionNotFoundName != null)
-					{
-						if (!Program.AnalysisMode)
-							printFunctionNotFoundWarning("指定された関数名\"@" + FunctionNotFoundName + "\"は存在しません", func, 2, true);
-						else
-							printFunctionNotFoundWarning(FunctionNotFoundName, func, 2, true);
-					}
-					continue;
-				}
-				if (!useCallForm && ((func.FunctionCode == FunctionCode.TRYCALLLIST) || (func.FunctionCode == FunctionCode.TRYJUMPLIST)))
-					useCallForm = true;
-			}
+            if (Config.NeedReduceArgumentOnLoad || Program.AnalysisMode)
+				setArugement_flag = true;
+            while (true)
+            {
+                nextLine = nextLine.NextLine;
+                InstructionLine func = nextLine as InstructionLine;
+                parentProcess.scaningLine = nextLine;
+                if (func == null)
+                {
+                    if ((nextLine is NullLine) || (nextLine is FunctionLabelLine))
+                        break;
+                    continue;
+                }
+                if (inMethod)
+                {
+                    if (!func.Function.IsMethodSafe())
+                    {
+                        ParserMediator.Warn(func.Function.Name + "命令は#FUNCTION中で使うことはできません", nextLine, 2, true, false);
+                        goto gotosetJumpTo;
+                    }
+                }
+                if (setArugement_flag || func.Function.IsForceSetArg())
+                    ArgumentParser.SetArgumentTo(func);
+                gotosetJumpTo:
+                if (func.Function.Instruction != null)
+                {
+                    string FunctionNotFoundName = null;
+                    try
+                    {
+                        func.Function.Instruction.SetJumpTo(ref useCallForm, func, depth, ref FunctionNotFoundName);
+                    }
+                    catch (CodeEE e)
+                    {
+                        ParserMediator.Warn(e.Message, func, 2, true, false);
+                        continue;
+                    }
+                    if (FunctionNotFoundName != null)
+                    {
+                        if (!Program.AnalysisMode)
+                            printFunctionNotFoundWarning("指定された関数名\"@" + FunctionNotFoundName + "\"は存在しません", func, 2, true);
+                        else
+                            printFunctionNotFoundWarning(FunctionNotFoundName, func, 2, true);
+                    }
+                    continue;
+                }
+                if (!useCallForm && ((func.FunctionCode == FunctionCode.TRYCALLLIST) || (func.FunctionCode == FunctionCode.TRYJUMPLIST)))
+                    useCallForm = true;
+            }
 		}
     }
 }
