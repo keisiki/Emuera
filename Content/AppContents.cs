@@ -90,19 +90,34 @@ namespace MinorShift.Emuera.Content
 					SpriteAnime currentAnime = null;
 					string directory = Path.GetDirectoryName(filepath).ToUpper() + Path.DirectorySeparatorChar;
 					string filename = Path.GetFileName(filepath);
-					string[] lines = File.ReadAllLines(filepath, Config.Encode);
-					int lineNo = 0;
+					//string[] lines = File.ReadAllLines(filepath, Config.Encode);
+                    List<string> list = new List<string>();
+                    using (StreamReader streamReader = new StreamReader(filepath, Config.Encode))
+                    {
+                        string item;
+                        while ((item = streamReader.ReadLine()) != null)
+                        {
+                            if (item.Length == 0)
+                                continue;
+                            item = item.Trim();
+                            if (item.Length == 0 || item.StartsWith(";"))
+                                continue;
+                            list.Add(item);
+                        }
+                    }
+                    string[] lines = list.ToArray();
+                    int lineNo = 0;
 					foreach (var line in lines)
 					{
 						lineNo++;
-						if (line.Length == 0)
-							continue;
-						string str = line.Trim();
-						if (str.Length == 0 || str.StartsWith(";"))
-							continue;
-						string[] tokens = str.Split(',');
-						//AContentItem item = CreateFromCsv(tokens);
-						sp = new ScriptPosition(filename, lineNo, line);
+						//if (line.Length == 0)
+						//	continue;
+						//string str = line.Trim();
+						//if (str.Length == 0 || str.StartsWith(";"))
+						//	continue;
+						string[] tokens = line.Split(',');//str.Split(',');
+                        //AContentItem item = CreateFromCsv(tokens);
+                        sp = new ScriptPosition(filename, lineNo, line);
 						ASprite item = CreateFromCsv(tokens, directory, currentAnime, sp) as ASprite;
 						if (item != null)
 						{
@@ -170,7 +185,7 @@ namespace MinorShift.Emuera.Content
 		{
 			if(tokens.Length < 2)
 				return null;
-			string name = tokens[0].Trim().ToUpper();//
+			string name = tokens[0].ToUpper();//
 			string arg2 = tokens[1].ToUpper();//画像ファイル名
 			if (name.Length == 0 || arg2.Length == 0)
 				return null;

@@ -838,7 +838,6 @@ namespace MinorShift.Emuera.GameProc
 				string filename = label.Position.Filename.ToUpper();
 				uniset(label);
 				nestCheck(label);
-				
             }
 			catch (Exception exc)
 			{
@@ -853,36 +852,6 @@ namespace MinorShift.Emuera.GameProc
 				parentProcess.scaningLine = null;
 			}
 
-		}
-
-		private void setArgument(FunctionLabelLine label)
-		{
-			//1周目/3周
-			//引数の解析とか
-			LogicalLine nextLine = label;
-			bool inMethod = label.IsMethod;
-			while (true)
-			{
-				nextLine = nextLine.NextLine;
-				parentProcess.scaningLine = nextLine;
-				InstructionLine func = nextLine as InstructionLine;
-				if (func == null)
-				{
-					if ((nextLine is NullLine) || (nextLine is FunctionLabelLine))
-						break;
-					continue;
-				}
-				if (inMethod)
-				{
-					if (!func.Function.IsMethodSafe())
-					{
-						ParserMediator.Warn(func.Function.Name + "命令は#FUNCTION中で使うことはできません", nextLine, 2, true, false);
-						continue;
-					}
-				}
-				if (Config.NeedReduceArgumentOnLoad || Program.AnalysisMode || func.Function.IsForceSetArg())
-					ArgumentParser.SetArgumentTo(func);
-			}
 		}
 
 		private void nestCheck(FunctionLabelLine label)
@@ -1436,53 +1405,7 @@ namespace MinorShift.Emuera.GameProc
             SelectcaseStack.Clear();
 		}
 
-		private void setJumpTo(FunctionLabelLine label)
-		{
-			//3周目/3周
-			//フロー制御命令のジャンプ先を設定
-			LogicalLine nextLine = label;
-			int depth = label.Depth;
-			if (depth < 0)
-				depth = -2;
-			while (true)
-			{
-				nextLine = nextLine.NextLine;
-				InstructionLine func = nextLine as InstructionLine;
-				if (func == null)
-				{
-					if ((nextLine is NullLine) || (nextLine is FunctionLabelLine))
-						break;
-					continue;
-				}
-				if (func.IsError)
-					continue;
-				parentProcess.scaningLine = func;
 
-				if (func.Function.Instruction != null)
-				{
-					string FunctionNotFoundName = null;
-					try
-					{
-						func.Function.Instruction.SetJumpTo(ref useCallForm, func, depth, ref FunctionNotFoundName);
-					}
-					catch (CodeEE e)
-					{
-						ParserMediator.Warn(e.Message, func, 2, true, false);
-						continue;
-					}
-					if (FunctionNotFoundName != null)
-					{
-						if (!Program.AnalysisMode)
-							printFunctionNotFoundWarning("指定された関数名\"@" + FunctionNotFoundName + "\"は存在しません", func, 2, true);
-						else
-							printFunctionNotFoundWarning(FunctionNotFoundName, func, 2, true);
-					}
-                    continue;
-				}
-				if (!useCallForm && ((func.FunctionCode == FunctionCode.TRYCALLLIST) || (func.FunctionCode == FunctionCode.TRYJUMPLIST)))
-					useCallForm = true;
-			}
-		}
 		private void uniset(FunctionLabelLine label)
 		{
 			LogicalLine nextLine = label;
