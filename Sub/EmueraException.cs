@@ -109,7 +109,7 @@ namespace MinorShift.Emuera.Sub
 		public ScriptPosition(string srcFile, int srcLineNo, string srcLine)
 		{
 			LineNo = srcLineNo;
-            RowLine = srcLine;
+            //RowLine = srcLine;
             if (srcFile == null)
 				Filename = "";
             else

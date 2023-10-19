@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Text;
 using WebPWrapper;
 
@@ -16,7 +17,9 @@ namespace MinorShift.Emuera.Content
 		}
 		static Dictionary<string, AContentFile> resourceDic = new Dictionary<string, AContentFile>();
 		static Dictionary<string, ASprite> imageDictionary = new Dictionary<string, ASprite>();
-		static Dictionary<int, GraphicsImage> gList;
+        static Dictionary<string, string[]> imageDictionary2 = new Dictionary<string, string[]>();
+        static Dictionary<string, string> imageDictionary3 = new Dictionary<string, string>();
+        static Dictionary<int, GraphicsImage> gList;
 
 		//static public T GetContent<T>(string name)where T :AContentItem
 		//{
@@ -41,9 +44,10 @@ namespace MinorShift.Emuera.Content
 			if (name == null)
 				return null;
 			name = name.ToUpper();
-			if (!imageDictionary.ContainsKey(name))
+			if (!imageDictionary2.ContainsKey(name))
 				return null;
-			return imageDictionary[name];
+			return CreateFromCsv(imageDictionary2[name], imageDictionary3[name], null, null) as ASprite;
+			//return imageDictionary[name];
 		}
 
 		static public void SpriteDispose(string name)
@@ -90,28 +94,45 @@ namespace MinorShift.Emuera.Content
 					SpriteAnime currentAnime = null;
 					string directory = Path.GetDirectoryName(filepath).ToUpper() + Path.DirectorySeparatorChar;
 					string filename = Path.GetFileName(filepath);
-					string[] lines = File.ReadAllLines(filepath, Config.Encode);
-					int lineNo = 0;
+					//string[] lines = File.ReadAllLines(filepath, Config.Encode);
+                    List<string> list = new List<string>();
+                    using (StreamReader streamReader = new StreamReader(filepath, Config.Encode))
+                    {
+                        string item;
+                        while ((item = streamReader.ReadLine()) != null)
+                        {
+                            if (item.Length == 0)
+                                continue;
+                            item = item.Trim();
+                            if (item.Length == 0 || item.StartsWith(";"))
+                                continue;
+                            list.Add(item);
+                        }
+                    }
+                    string[] lines = list.ToArray();
+                    int lineNo = 0;
 					foreach (var line in lines)
 					{
 						lineNo++;
-						if (line.Length == 0)
-							continue;
-						string str = line.Trim();
-						if (str.Length == 0 || str.StartsWith(";"))
-							continue;
-						string[] tokens = str.Split(',');
-						//AContentItem item = CreateFromCsv(tokens);
-						sp = new ScriptPosition(filename, lineNo, line);
-						ASprite item = CreateFromCsv(tokens, directory, currentAnime, sp) as ASprite;
+						//if (line.Length == 0)
+						//	continue;
+						//string str = line.Trim();
+						//if (str.Length == 0 || str.StartsWith(";"))
+						//	continue;
+						string[] tokens = line.Split(',');//str.Split(',');
+                        sp = new ScriptPosition(filename, lineNo, line);
+                        ASprite item = CreateFromCsv(tokens, directory, currentAnime, sp) as ASprite;
 						if (item != null)
 						{
 							//アニメスプライト宣言ならcurrentAnime上書きしてフレーム追加モードにする。そうでないならnull
 							currentAnime = item as SpriteAnime;
-							if (!imageDictionary.ContainsKey(item.Name))
+							if (!imageDictionary2.ContainsKey(item.Name))
 							{
-								imageDictionary.Add(item.Name, item);
-							}
+								//imageDictionary.Add(item.Name, item);
+								imageDictionary2.Add(item.Name, tokens);
+                                imageDictionary3.Add(item.Name, directory);
+                                item.Dispose();
+                            }
 							else
 							{
 								ParserMediator.Warn("同名のリソースがすでに作成されています:"+item.Name, sp, 0);
@@ -131,9 +152,10 @@ namespace MinorShift.Emuera.Content
 									+ "適切な libwebp_" + (IntPtr.Size == 4 ? "x86" : "x64") + ".dll が exe と同じフォルダにあるか確認してください。", sp, 3);
 				return false;
 			}
-			catch
-			{
-				return false;
+            catch (Exception e)
+            {
+				throw new CodeEE("111:" + e.Message + "/"+e.InnerException);
+                return false;
 				//throw new CodeEE("リソースファイルのロード中にエラーが発生しました");
 			}
 			return true;
@@ -170,7 +192,7 @@ namespace MinorShift.Emuera.Content
 		{
 			if(tokens.Length < 2)
 				return null;
-			string name = tokens[0].Trim().ToUpper();//
+			string name = tokens[0].ToUpper();//
 			string arg2 = tokens[1].ToUpper();//画像ファイル名
 			if (name.Length == 0 || arg2.Length == 0)
 				return null;
