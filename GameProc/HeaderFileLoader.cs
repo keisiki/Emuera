@@ -92,7 +92,10 @@ namespace MinorShift.Emuera.GameProc
 					if (!noError)
 						return false;
 					position = new ScriptPosition(filename, eReader.LineNo, st.RowString);
-					LexicalAnalyzer.SkipWhiteSpace(st);
+					lock (hdlockobject)
+					{
+						LexicalAnalyzer.SkipWhiteSpace(st);
+					}
 					if (st.Current != '#')
 						throw new CodeEE("ヘッダーの中に#で始まらない行があります", position);
 					st.ShiftNext();
