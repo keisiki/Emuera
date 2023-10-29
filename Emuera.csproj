@@ -71,6 +71,7 @@
     <Compile Include="Config\ConfigItem.cs" />
     <Compile Include="Config\KeyMacro.cs" />
     <Compile Include="Config\Config.cs" />
+    <Compile Include="GameProc\LazyloadConfig.cs" />
     <Compile Include="Content\AContentFile.cs" />
     <Compile Include="Content\AContentItem.cs" />
     <Compile Include="Content\ConstImage.cs" />
