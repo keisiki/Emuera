@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Drawing.Text;
 using static MinorShift.Emuera.GameData.Function.FunctionMethodCreator;
+using System.Net;
 
 namespace MinorShift.Emuera.GameProc
 {
@@ -53,7 +54,8 @@ namespace MinorShift.Emuera.GameProc
 			uint starttime = WinmmTimer.TickCount;
 			try
 			{
-				labelDic.RemoveAll();
+				parentProcess.LazyloadDirecttoryCheck();
+                labelDic.RemoveAll();
 				System.Windows.Forms.Application.DoEvents();
                 Parallel.For(0,erbFiles.Count,(i) => loadErb(erbFiles[i].Value, erbFiles[i].Key, isOnlyEvent));
 				ParserMediator.FlushWarningList();
@@ -295,6 +297,12 @@ namespace MinorShift.Emuera.GameProc
 		{
 			//読み込んだファイルのパスを記録
 			//一部ファイルの再読み込み時の処理用
+			if (parentProcess.LazyloadDirectory.Contains(filepath)) 
+			{
+                output.PrintError(filename + "을 생략");
+                parentProcess.LazyloadTarget.Add(filename);
+				return;
+            }
 			labelDic.AddFilename(filename);
 			EraStreamReader eReader = new EraStreamReader(Config.UseRenameFile && ParserMediator.RenameDic != null);
 			if (!eReader.Open(filepath, filename))

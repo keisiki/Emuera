@@ -44,10 +44,9 @@ namespace MinorShift.Emuera.Content
 			if (name == null)
 				return null;
 			name = name.ToUpper();
-			if (!imageDictionary2.ContainsKey(name))
+			if (!imageDictionary.ContainsKey(name))
 				return null;
-			return CreateFromCsv(imageDictionary2[name], imageDictionary3[name], null, null) as ASprite;
-			//return imageDictionary[name];
+			return imageDictionary[name];
 		}
 
 		static public void SpriteDispose(string name)
@@ -126,12 +125,9 @@ namespace MinorShift.Emuera.Content
 						{
 							//アニメスプライト宣言ならcurrentAnime上書きしてフレーム追加モードにする。そうでないならnull
 							currentAnime = item as SpriteAnime;
-							if (!imageDictionary2.ContainsKey(item.Name))
+							if (!imageDictionary.ContainsKey(item.Name))
 							{
-								//imageDictionary.Add(item.Name, item);
-								imageDictionary2.Add(item.Name, tokens);
-                                imageDictionary3.Add(item.Name, directory);
-                                item.Dispose();
+								imageDictionary.Add(item.Name, item);
                             }
 							else
 							{
@@ -154,7 +150,6 @@ namespace MinorShift.Emuera.Content
 			}
             catch (Exception e)
             {
-				throw new CodeEE("111:" + e.Message + "/"+e.InnerException);
                 return false;
 				//throw new CodeEE("リソースファイルのロード中にエラーが発生しました");
 			}
