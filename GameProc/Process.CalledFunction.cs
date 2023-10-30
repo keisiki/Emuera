@@ -106,7 +106,13 @@ namespace MinorShift.Emuera.GameProc
 			CalledFunction called = new CalledFunction(label);
 			called.Finished = false;
 			FunctionLabelLine labelline = parent.LabelDictionary.GetNonEventLabel(label);
-			if (labelline == null)
+            // Lazy Loading Table에서 가져오기 시도
+            if (labelline == null)
+            {
+                if (parent.LoadTrainEventFile(label))
+                    labelline = parent.LabelDictionary.GetNonEventLabel(label);
+            }
+            if (labelline == null)
 			{
 				if (parent.LabelDictionary.GetEventLabels(label) != null)
 				{

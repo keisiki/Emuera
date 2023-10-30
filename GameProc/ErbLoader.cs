@@ -295,12 +295,10 @@ namespace MinorShift.Emuera.GameProc
 		/// <param name="filepath"></param>
 		private void loadErb(string filepath, string filename, List<string> isOnlyEvent)
 		{
-			//読み込んだファイルのパスを記録
-			//一部ファイルの再読み込み時の処理用
-			if (parentProcess.LazyloadDirectory.Contains(filepath)) 
+            //読み込んだファイルのパスを記録
+            //一部ファイルの再読み込み時の処理用
+            if (parentProcess.LazyloadCheck(filename)) 
 			{
-                output.PrintError(filename + "을 생략");
-                parentProcess.LazyloadTarget.Add(filename);
 				return;
             }
 			labelDic.AddFilename(filename);
