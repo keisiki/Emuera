@@ -94,10 +94,7 @@ namespace MinorShift.Emuera
 
 		public static void Warn(string str, ScriptPosition pos, int level)
 		{
-			lock (pslock)
-			{
-				Warn(str, pos, level, null);
-			}
+			Warn(str, pos, level, null);
 		}
 
 		public static void Warn(string str, ScriptPosition pos, int level, string stack)
@@ -105,7 +102,8 @@ namespace MinorShift.Emuera
 			if (level < Config.DisplayWarningLevel && !Program.AnalysisMode)
 				return;
 			if (console != null && !console.RunERBFromMemory)
-				warningList.Add(new ParserWarning(str, pos, level, stack));
+                lock (pslock)
+                    warningList.Add(new ParserWarning(str, pos, level, stack));
 		}
 
 		/// <summary>

@@ -18,6 +18,8 @@ namespace MinorShift.Emuera.GameProc
 	internal sealed class ErbLoader
 	{
         private object lockobject = new object ();
+        private object lockobject2 = new object();
+        private object lockobject3 = new object();
         public ErbLoader(EmueraConsole main, ExpressionMediator exm, Process proc)
 		{
 			output = main;
@@ -320,20 +322,21 @@ namespace MinorShift.Emuera.GameProc
 					//変換できなかった[[～～]]についてはLexAnalyzerがエラーを投げる
 					if (st.Current == '[' && st.Next != '[')
 					{
-						lock (lockobject)
-						{
+						//lock (lockobject)
+						//{
 							st.ShiftNext();
 							string token = LexicalAnalyzer.ReadSingleIdentifier(st);
 							LexicalAnalyzer.SkipWhiteSpace(st);
 							string token2 = LexicalAnalyzer.ReadSingleIdentifier(st);
 							if ((string.IsNullOrEmpty(token)) || (st.Current != ']'))
 								ParserMediator.Warn("[]の使い方が不正です", position, 1);
-							ppstate.AddKeyWord(token, token2, position);
+							lock (lockobject)
+								ppstate.AddKeyWord(token, token2, position);
 							st.ShiftNext();
 							if (!st.EOS)
 								ParserMediator.Warn("[" + token + "]の後ろは無視されます。", position, 1);
 							continue;
-						}
+						//}
 					}
 					//if ((skip) || (Program.DebugMode && ifndebug) || (!Program.DebugMode && ifdebug))
 					//	continue;
@@ -354,8 +357,8 @@ namespace MinorShift.Emuera.GameProc
 					}
 					if ((st.Current == '$') || (st.Current == '@'))
 					{
-						lock (lockobject)
-						{
+						//lock (lockobject)
+						//{
 							bool isFunction = (st.Current == '@');
 							nextLine = LogicalLineParser.ParseLabelLine(st, position, output);
 							if (isFunction)
@@ -366,12 +369,13 @@ namespace MinorShift.Emuera.GameProc
 								{
 									noError = false;
 									ParserMediator.Warn(nextLine.ErrMes, position, 2);
-									labelDic.AddInvalidLabel(label);
+									lock (lockobject2)
+										labelDic.AddInvalidLabel(label);
 								}
 								else// if (label is FunctionLabelLine)
 								{
-
-									labelDic.AddLabel(label);
+								    lock (lockobject2)
+										labelDic.AddLabel(label);
 									if (!label.IsEvent && (Config.WarnNormalFunctionOverloading || Program.AnalysisMode))
 									{
 										FunctionLabelLine seniorLabel = labelDic.GetSameNameLabel(label);
@@ -394,10 +398,11 @@ namespace MinorShift.Emuera.GameProc
 							{
 								if (nextLine is GotoLabelLine)
 								{
-									lock (lockobject)
+									
+									GotoLabelLine gotoLabel = (GotoLabelLine)nextLine;
+									gotoLabel.ParentLabelLine = lastLabelLine;
+									lock (lockobject3)
 									{
-										GotoLabelLine gotoLabel = (GotoLabelLine)nextLine;
-										gotoLabel.ParentLabelLine = lastLabelLine;
 										if (lastLabelLine != null && !labelDic.AddLabelDollar(gotoLabel))
 										{
 											ScriptPosition pos = labelDic.GetLabelDollar(gotoLabel.LabelName, lastLabelLine).Position;
@@ -406,7 +411,7 @@ namespace MinorShift.Emuera.GameProc
 									}
 								}
 							}
-						}
+						//}
 						if (nextLine is InvalidLine)
 						{
 							noError = false;

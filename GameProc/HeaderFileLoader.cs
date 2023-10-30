@@ -15,7 +15,9 @@ namespace MinorShift.Emuera.GameProc
 	internal sealed class HeaderFileLoader
 	{
 		private object hdlockobject = new object();
-		public HeaderFileLoader(EmueraConsole main, IdentifierDictionary idDic, Process proc)
+        private object hdlockobject1 = new object();
+        private object hdlockobject2 = new object();
+        public HeaderFileLoader(EmueraConsole main, IdentifierDictionary idDic, Process proc)
 		{
 			output = main;
 			parentProcess = proc;
@@ -111,27 +113,20 @@ namespace MinorShift.Emuera.GameProc
 					switch (sharpID)
 					{
 						case "DEFINE":
-							lock (hdlockobject)
-							{
-								analyzeSharpDefine(st, position);
-								break;
-							}
+							analyzeSharpDefine(st, position);
+							break;
 						case "FUNCTION":
 						case "FUNCTIONS":
-							lock (hdlockobject)
-							{
-								analyzeSharpFunction(st, position, sharpID == "FUNCTIONS");
-								break;
-							}
+							analyzeSharpFunction(st, position, sharpID == "FUNCTIONS");
+							break;
 						case "DIM":
 						case "DIMS":
 							//1822 #DIMは保留しておいて後でまとめてやる
 							{
-								lock (hdlockobject)
-								{
-									WordCollection wc = LexicalAnalyzer.Analyse(st, LexEndWith.EoL, LexAnalyzeFlag.AllowAssignment);
-									dimlines.Enqueue(new DimLineWC(wc, sharpID == "DIMS", false, position));
-								}
+								
+								WordCollection wc = LexicalAnalyzer.Analyse(st, LexEndWith.EoL, LexAnalyzeFlag.AllowAssignment);
+                                lock (hdlockobject1)
+                                    dimlines.Enqueue(new DimLineWC(wc, sharpID == "DIMS", false, position));
 							}
 							//analyzeSharpDim(st, position, sharpID == "DIMS");
 							break;
@@ -192,7 +187,8 @@ namespace MinorShift.Emuera.GameProc
 				//throw new CodeEE("置換先の式がありません", position);
 				//1808a3 空マクロの許可
 				DefineMacro nullmac = new DefineMacro(srcID, new WordCollection(), 0);
-				idDic.AddMacro(nullmac);
+				lock(hdlockobject2)
+					idDic.AddMacro(nullmac);
 				return;
 			}
 
@@ -261,7 +257,8 @@ namespace MinorShift.Emuera.GameProc
 			if (hasArg)//1808a3 関数型マクロの封印
 				throw new CodeEE("関数型マクロは宣言できません", position);
 			DefineMacro mac = new DefineMacro(srcID, destWc, argID.Count);
-			idDic.AddMacro(mac);
+            lock (hdlockobject2)
+                idDic.AddMacro(mac);
 		}
 
 		//private void analyzeSharpDim(StringStream st, ScriptPosition position, bool dims)
@@ -292,14 +289,17 @@ namespace MinorShift.Emuera.GameProc
 					try
 					{
 						UserDefinedVariableData data = UserDefinedVariableData.Create(dimline);
-						if (data.Reference)
-							throw new NotImplCodeEE();
-						VariableToken var = null;
-						if (data.CharaData)
-							var = parentProcess.VEvaluator.VariableData.CreateUserDefCharaVariable(data);
-						else
-							var = parentProcess.VEvaluator.VariableData.CreateUserDefVariable(data);
-						idDic.AddUseDefinedVariable(var);
+						if (data != null)
+						{
+							if (data.Reference)
+								throw new NotImplCodeEE();
+							VariableToken var = null;
+							if (data.CharaData)
+								var = parentProcess.VEvaluator.VariableData.CreateUserDefCharaVariable(data);
+							else
+								var = parentProcess.VEvaluator.VariableData.CreateUserDefVariable(data);
+							idDic.AddUseDefinedVariable(var);
+						}
 					}
 					catch (IdentifierNotFoundCodeEE e)
 					{
