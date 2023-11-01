@@ -37,12 +37,12 @@ namespace MinorShift.Emuera.GameProc
 		LabelDictionary labelDic;
 
 		bool noError = true;
-
-		/// <summary>
-		/// 複数のファイルを読む
-		/// </summary>
-		/// <param name="filepath"></param>
-		public bool LoadErbFiles(string erbDir, bool displayReport, LabelDictionary labelDictionary)
+		bool useLazyLoading = false;
+        /// <summary>
+        /// 複数のファイルを読む
+        /// </summary>
+        /// <param name="filepath"></param>
+        public bool LoadErbFiles(string erbDir, bool displayReport, LabelDictionary labelDictionary)
 		{
 			//1.713 labelDicをnewする位置を変更。
 			//checkScript();の時点でExpressionPerserがProcess.instance.LabelDicを必要とするから。
@@ -52,7 +52,8 @@ namespace MinorShift.Emuera.GameProc
             List<string> isOnlyEvent = new List<string>();
             noError = true;
 			uint starttime = WinmmTimer.TickCount;
-			try
+            useLazyLoading = parentProcess.LoadLazyLoadingTable();
+            try
 			{
                 if (parentProcess.LoadLazyLoadingTable())
                 {
@@ -86,7 +87,8 @@ namespace MinorShift.Emuera.GameProc
 #if DEBUG
                 output.PrintSystemLine("로드 완료");
 #endif
-				parentProcess.SaveLazyLoadingList(labelDic.GetAllLabels(false), erbFiles);
+                if (!useLazyLoading)
+                    parentProcess.SaveLazyLoadingList(labelDic.GetAllLabels(false), erbFiles);
             }
             catch (Exception e)
 			{
@@ -114,7 +116,7 @@ namespace MinorShift.Emuera.GameProc
             List<string> isOnlyEvent = new List<string>();
             noError = true;
 			labelDic = labelDictionary;
-			labelDic.Initialized = false;
+			//labelDic.Initialized = false;
 			foreach (string fpath in path)
 			{
 				if (fpath.StartsWith(Program.ErbDir, Config.SCIgnoreCase) && !Program.AnalysisMode)
@@ -124,15 +126,15 @@ namespace MinorShift.Emuera.GameProc
 				if (Program.AnalysisMode)
 					output.PrintSystemLine(fname + "読み込み中・・・");
 				System.Windows.Forms.Application.DoEvents();
-                loadErb(fpath, fname, isOnlyEvent);
+                loadErb(fpath, fname, isOnlyEvent,true);
 			}
             if (Program.AnalysisMode)
                 output.NewLine();
             ParserMediator.FlushWarningList();
-			setLabelsArg();
+			//setLabelsArg();
 			ParserMediator.FlushWarningList();
-			labelDic.Initialized = true;
-            checkScript();
+			//labelDic.Initialized = true;
+            //checkScript();
 			ParserMediator.FlushWarningList();
 			parentProcess.scaningLine = null;
             isOnlyEvent.Clear();
@@ -297,12 +299,12 @@ namespace MinorShift.Emuera.GameProc
 		/// ファイル一つを読む
 		/// </summary>
 		/// <param name="filepath"></param>
-		private void loadErb(string filepath, string filename, List<string> isOnlyEvent)
+		private void loadErb(string filepath, string filename, List<string> isOnlyEvent, bool isLazyLoading = false)
 		{
             //読み込んだファイルのパスを記録
             //一部ファイルの再読み込み時の処理用
-            if (parentProcess.LazyLoadingFiles.Contains(filepath)) 
-			{
+            if (useLazyLoading && parentProcess.LazyLoadingFiles.Contains(filepath))
+            {
                 return;
             }
 			labelDic.AddFilename(filename);
@@ -333,8 +335,6 @@ namespace MinorShift.Emuera.GameProc
 					//変換できなかった[[～～]]についてはLexAnalyzerがエラーを投げる
 					if (st.Current == '[' && st.Next != '[')
 					{
-						//lock (lockobject)
-						//{
 							st.ShiftNext();
 							string token = LexicalAnalyzer.ReadSingleIdentifier(st);
 							LexicalAnalyzer.SkipWhiteSpace(st);
@@ -347,7 +347,6 @@ namespace MinorShift.Emuera.GameProc
 							if (!st.EOS)
 								ParserMediator.Warn("[" + token + "]の後ろは無視されます。", position, 1);
 							continue;
-						//}
 					}
 					//if ((skip) || (Program.DebugMode && ifndebug) || (!Program.DebugMode && ifdebug))
 					//	continue;
@@ -467,6 +466,12 @@ namespace MinorShift.Emuera.GameProc
                     setLabelsArg(label);
 					lock(lockobject)
 	                    labelDic.SortLabel(label);
+                }
+                // 지연로딩으로 부르는 경우에만 여기서 처리하고, 초기 로딩시에는 #FUNCTION 때문에 일괄 처리해야함.
+                if (isLazyLoading)
+                {
+                    foreach (var label in tempFunctionLabels)
+                        checkFunctionWithCatch(label);
                 }
             }
 			finally
