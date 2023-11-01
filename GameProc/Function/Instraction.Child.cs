@@ -817,26 +817,7 @@ namespace MinorShift.Emuera.GameProc.Function
 					useCallForm = true;
 					return;
 				}
-				SpCallFArgment callfArg = (SpCallFArgment)func.Argument;
-				if (Config.ICFunction)
-					callfArg.ConstStr = callfArg.ConstStr.ToUpper();
-				try
-				{
-					callfArg.FuncTerm = GlobalStatic.IdentifierDictionary.GetFunctionMethod(GlobalStatic.LabelDictionary, callfArg.ConstStr, callfArg.RowArgs, true);
-				}
-				catch (CodeEE e)
-				{
-					ParserMediator.Warn(e.Message, func, 2, true, false);
-					return;
-				}
-				if (callfArg.FuncTerm == null)
-				{
-					if (!Program.AnalysisMode)
-						ParserMediator.Warn("指定された関数名\"@" + callfArg.ConstStr + "\"は存在しません", func, 2, true, false);
-					else
-						ParserMediator.Warn(callfArg.ConstStr, func, 2, true, false);
-					return;
-				}
+				
 			}
 
 			public override void DoInstruction(ExpressionMediator exm, InstructionLine func, ProcessState state)
@@ -851,8 +832,32 @@ namespace MinorShift.Emuera.GameProc.Function
 				}
 				else
 				{
-					labelName = func.Argument.ConstStr;
-					mToken = ((SpCallFArgment)func.Argument).FuncTerm;
+                    SpCallFArgment callfArg = (SpCallFArgment)func.Argument;
+                    if (Config.ICFunction)
+                        callfArg.ConstStr = callfArg.ConstStr.ToUpper();
+                    labelName = func.Argument.ConstStr;
+					mToken = callfArg.FuncTerm;
+					if (mToken == null)
+					{
+                        try
+                        {
+                            callfArg.FuncTerm = GlobalStatic.IdentifierDictionary.GetFunctionMethod(GlobalStatic.LabelDictionary, callfArg.ConstStr, callfArg.RowArgs, true);
+                            mToken = callfArg.FuncTerm;
+                        }
+                        catch (CodeEE e)
+                        {
+                            ParserMediator.Warn(e.Message, func, 2, true, false);
+                            return;
+                        }
+                        if (callfArg.FuncTerm == null)
+                        {
+                            if (!Program.AnalysisMode)
+                                ParserMediator.Warn("指定された関数名\"@" + callfArg.ConstStr + "\"は存在しません", func, 2, true, false);
+                            else
+                                ParserMediator.Warn(callfArg.ConstStr, func, 2, true, false);
+                            return;
+                        }
+                    }
 				}
 				if (mToken == null)
 					throw new CodeEE("式中関数\"@" + labelName + "\"が見つかりません");
@@ -2254,44 +2259,15 @@ namespace MinorShift.Emuera.GameProc.Function
 			}
 			readonly bool isJump;
 			readonly bool isTry;
-
-			public override void SetJumpTo(ref bool useCallForm, InstructionLine func, int currentDepth, ref string FunctionoNotFoundName)
+            int tmpCurrentDepth;
+            public override void SetJumpTo(ref bool useCallForm, InstructionLine func, int currentDepth, ref string FunctionoNotFoundName)
 			{
 				if (!func.Argument.IsConst)
 				{
 					useCallForm = true;
 					return;
 				}
-				SpCallArgment callArg = (SpCallArgment)func.Argument;
-				string labelName = callArg.ConstStr;
-				if (Config.ICFunction)
-					labelName = labelName.ToUpper();
-				CalledFunction call = CalledFunction.CallFunction(GlobalStatic.Process, labelName, func);
-				if ((call == null) && (!func.Function.IsTry()))
-				{
-					FunctionoNotFoundName = labelName;
-					return;
-				}
-				if (call != null)
-				{
-					func.JumpTo = call.TopLabel;
-					if (call.TopLabel.Depth < 0)
-						call.TopLabel.Depth = currentDepth + 1;
-					if (call.TopLabel.IsError)
-					{
-						func.IsError = true;
-						func.ErrMes = call.TopLabel.ErrMes;
-						return;
-					}
-					string errMes;
-					callArg.UDFArgument = call.ConvertArg(callArg.RowArgs, out errMes);
-					if (callArg.UDFArgument == null)
-					{
-						ParserMediator.Warn(errMes, func, 2, true, false);
-						return;
-					}
-				}
-				callArg.CallFunc = call;
+				tmpCurrentDepth = currentDepth;
 			}
 
 			public override void DoInstruction(ExpressionMediator exm, InstructionLine func, ProcessState state)
@@ -2304,7 +2280,39 @@ namespace MinorShift.Emuera.GameProc.Function
 				{
 					call = spCallArg.CallFunc;
 					labelName = spCallArg.ConstStr;
-					arg = spCallArg.UDFArgument;
+                    if (call == null)
+                    {
+                        if (Config.ICFunction)
+                            labelName = labelName.ToUpper();
+                        call = CalledFunction.CallFunction(GlobalStatic.Process, labelName, func);
+                        if ((call == null) && (!func.Function.IsTry()))
+                        {
+                            ParserMediator.Warn("CALL 명령으로 호출할 대상 " + labelName + "을 찾지 못했습니다.", func, 2, true, false);
+                            return;
+                        }
+                        if (call != null)
+                        {
+                            func.JumpTo = call.TopLabel;
+                            if (call.TopLabel.Depth < 0)
+                                call.TopLabel.Depth = tmpCurrentDepth + 1;
+                            if (call.TopLabel.IsError)
+                            {
+                                func.IsError = true;
+                                func.ErrMes = call.TopLabel.ErrMes;
+                                return;
+                            }
+                            string errMes;
+                            spCallArg.UDFArgument = call.ConvertArg(spCallArg.RowArgs, out errMes);
+                            if (spCallArg.UDFArgument == null)
+                            {
+                                ParserMediator.Warn(errMes, func, 2, true, false);
+                                return;
+                            }
+                        }
+                        spCallArg.CallFunc = call;
+                    }
+
+                    arg = spCallArg.UDFArgument;
 				}
 				else
 				{

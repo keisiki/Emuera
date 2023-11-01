@@ -54,7 +54,10 @@ namespace MinorShift.Emuera.GameProc
 			uint starttime = WinmmTimer.TickCount;
 			try
 			{
-				parentProcess.LazyloadDirecttoryCheck();
+                if (parentProcess.LoadLazyLoadingTable())
+                {
+                    output.PrintSystemLine("지연 로딩 테이블에서 " + parentProcess.LazyLoadingFiles.Count + "개의 파일을 찾았습니다.");
+                }
                 labelDic.RemoveAll();
 				System.Windows.Forms.Application.DoEvents();
                 Parallel.For(0,erbFiles.Count,(i) => loadErb(erbFiles[i].Value, erbFiles[i].Key, isOnlyEvent));
@@ -64,7 +67,7 @@ namespace MinorShift.Emuera.GameProc
 #endif
 				if (displayReport)
 					output.PrintSystemLine("ユーザー定義関数のリストを構築中・・・");
-				setLabelsArg();
+				//setLabelsArg();
 				ParserMediator.FlushWarningList();
 				labelDic.Initialized = true;
 #if DEBUG
@@ -83,6 +86,7 @@ namespace MinorShift.Emuera.GameProc
 #if DEBUG
                 output.PrintSystemLine("로드 완료");
 #endif
+				parentProcess.SaveLazyLoadingList(labelDic.GetAllLabels(false), erbFiles);
             }
             catch (Exception e)
 			{
@@ -297,9 +301,9 @@ namespace MinorShift.Emuera.GameProc
 		{
             //読み込んだファイルのパスを記録
             //一部ファイルの再読み込み時の処理用
-            if (parentProcess.LazyloadCheck(filename)) 
+            if (parentProcess.LazyLoadingFiles.Contains(filepath)) 
 			{
-				return;
+                return;
             }
 			labelDic.AddFilename(filename);
 			EraStreamReader eReader = new EraStreamReader(Config.UseRenameFile && ParserMediator.RenameDic != null);
@@ -310,7 +314,8 @@ namespace MinorShift.Emuera.GameProc
 			}
 			try
 			{
-				PPState ppstate = new PPState();
+                List<FunctionLabelLine> tempFunctionLabels = new List<FunctionLabelLine>();
+                PPState ppstate = new PPState();
 				LogicalLine nextLine = new NullLine();
 				LogicalLine lastLine = new NullLine();
 				FunctionLabelLine lastLabelLine = null;
@@ -380,8 +385,11 @@ namespace MinorShift.Emuera.GameProc
 								}
 								else// if (label is FunctionLabelLine)
 								{
-								    lock (lockobject2)
+									lock (lockobject2)
+									{
 										labelDic.AddLabel(label);
+										tempFunctionLabels.Add(label);
+									}
 									if (!label.IsEvent && (Config.WarnNormalFunctionOverloading || Program.AnalysisMode))
 									{
 										FunctionLabelLine seniorLabel = labelDic.GetSameNameLabel(label);
@@ -453,7 +461,14 @@ namespace MinorShift.Emuera.GameProc
 				addLine(new NullLine(), lastLine);
 				position = new ScriptPosition(eReader.Filename, -1, null);
 				ppstate.FileEnd(position);
-			}
+                // 여기서 setLabelsArg()를 처리.
+                foreach (var label in tempFunctionLabels)
+                {
+                    setLabelsArg(label);
+					lock(lockobject)
+	                    labelDic.SortLabel(label);
+                }
+            }
 			finally
 			{
 				eReader.Close();
@@ -469,35 +484,41 @@ namespace MinorShift.Emuera.GameProc
 			lastLine.NextLine = nextLine;
 			return nextLine;
 		}
-
 		private void setLabelsArg()
 		{
 			List<FunctionLabelLine> labelList = labelDic.GetAllLabels(false);
 			foreach (FunctionLabelLine label in labelList)
 			{
-				try
+				setLabelsArg(label);
+			}
+			labelDic.SortLabels();
+		}
+        private void setLabelsArg(FunctionLabelLine label)
+		{
+			try
+			{
+				if (label.Arg != null)
+					return;
+				lock (lockobject)
 				{
-					if (label.Arg != null)
-						continue;
 					parentProcess.scaningLine = label;
 					parseLabel(label);
 				}
-				catch (Exception exc)
-				{
-					System.Media.SystemSounds.Hand.Play();
-					string errmes = exc.Message;
-					if (!(exc is EmueraException))
-						errmes = exc.GetType().ToString() + ":" + errmes;
-					ParserMediator.Warn("関数@" + label.LabelName + " の引数のエラー:" + errmes, label, 2, true, false);
-					label.ErrMes = "ロード時に解析に失敗した関数が呼び出されました";
-                    label.IsError = true;
-				}
-				finally
-				{
-					parentProcess.scaningLine = null;
-				}
 			}
-			labelDic.SortLabels();
+			catch (Exception exc)
+			{
+				System.Media.SystemSounds.Hand.Play();
+				string errmes = exc.Message;
+				if (!(exc is EmueraException))
+					errmes = exc.GetType().ToString() + ":" + errmes;
+				ParserMediator.Warn("関数@" + label.LabelName + " の引数のエラー:" + errmes, label, 2, true, false);
+				label.ErrMes = "ロード時に解析に失敗した関数が呼び出されました";
+                label.IsError = true;
+			}
+			finally
+			{
+				parentProcess.scaningLine = null;
+			}
 		}
 
 		private void parseLabel(FunctionLabelLine label)
@@ -532,18 +553,21 @@ namespace MinorShift.Emuera.GameProc
 				{ errMes = "引数の書式が間違っています"; goto err; }
 				if (symbol.Type == '[')//TODO:subNames 結局実装しないかも
 				{
-					IOperandTerm[] subNamesRow = ExpressionParser.ReduceArguments(wc, ArgsEndWith.RightBracket, false);
-					if (subNamesRow.Length == 0)
-					{ errMes = "関数定義の[]内の引数は空にできません"; goto err; }
-					subNames = new SingleTerm[subNamesRow.Length];
-					for (int i = 0; i < subNamesRow.Length; i++)
+					lock (lockobject)
 					{
-						if (subNamesRow[i] == null)
-						{ errMes = "関数定義の引数は省略できません"; goto err; }
-						IOperandTerm term = subNamesRow[i].Restructure(exm);
-						subNames[i] = term as SingleTerm;
-						if (subNames[i] == null)
-						{ errMes = "関数定義の[]内の引数は定数のみ指定できます"; goto err; }
+						IOperandTerm[] subNamesRow = ExpressionParser.ReduceArguments(wc, ArgsEndWith.RightBracket, false);
+						if (subNamesRow.Length == 0)
+						{ errMes = "関数定義の[]内の引数は空にできません"; goto err; }
+						subNames = new SingleTerm[subNamesRow.Length];
+						for (int i = 0; i < subNamesRow.Length; i++)
+						{
+							if (subNamesRow[i] == null)
+							{ errMes = "関数定義の引数は省略できません"; goto err; }
+							IOperandTerm term = subNamesRow[i].Restructure(exm);
+							subNames[i] = term as SingleTerm;
+							if (subNames[i] == null)
+							{ errMes = "関数定義の[]内の引数は定数のみ指定できます"; goto err; }
+						}
 					}
 					symbol = wc.Current as SymbolWord;
 					if ((!wc.EOL) && (symbol == null))

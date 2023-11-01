@@ -9,7 +9,8 @@ namespace MinorShift.Emuera.GameData.Variable
 	internal delegate LocalVariableToken CreateLocalVariableToken(VariableCode varCode, string subKey, int size);
 	internal sealed class VariableLocal
 	{
-		public VariableLocal(VariableCode varCode, int size, CreateLocalVariableToken creater)
+        private object lockobject = new object();
+        public VariableLocal(VariableCode varCode, int size, CreateLocalVariableToken creater)
 		{
 			this.size = size;
 			this.varCode = varCode;

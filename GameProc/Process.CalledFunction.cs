@@ -109,7 +109,7 @@ namespace MinorShift.Emuera.GameProc
             // Lazy Loading Table에서 가져오기 시도
             if (labelline == null)
             {
-                if (parent.LoadTrainEventFile(label))
+                if (parent.TryLazyLoadErb(label))
                     labelline = parent.LabelDictionary.GetNonEventLabel(label);
             }
             if (labelline == null)
