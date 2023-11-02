@@ -66,8 +66,7 @@ namespace MinorShift.Emuera.GameProc
 				GlobalStatic.IdentifierDictionary.resizeLocalVars("ARGS", label.LabelName, label.ArgsLength);
 				return;
 			}
-
-			if (Config.CompatiCallEvent)
+			else if (Config.CompatiCallEvent)
 				noneventLabelDic.Add(key, label);
 
 			List<FunctionLabelLine>[] eventLabels;

@@ -50,7 +50,10 @@ namespace MinorShift.Emuera.GameProc
                 reader = new StreamReader(LazyLoadingConfigFilePath, Encoding.UTF8);
                 string line = null;
                 while ((line = reader.ReadLine()) != null)
-                    ret.Add(line.Trim());
+                {
+                    if (!line.StartsWith(";"))
+                        ret.Add(line.Trim());
+                }
             }
             catch (Exception e)
             {
