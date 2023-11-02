@@ -488,7 +488,9 @@ namespace MinorShift.Emuera
 				{
 					//システムの入力待ち中にデバッグコマンドからLOCALを呼んだとき。
 					if ((line == null) || (line.ParentLabelLine == null))
-						throw new CodeEE("実行中の関数が存在しないため" + key + "を取得又は変更できませんでした");
+					{
+                        throw new CodeEE("実行中の関数が存在しないため" + key + "を取得又は変更できませんでした");
+					}
 					subKey = line.ParentLabelLine.LabelName;
 				}
 				else

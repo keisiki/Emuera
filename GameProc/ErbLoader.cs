@@ -307,7 +307,8 @@ namespace MinorShift.Emuera.GameProc
             {
                 return;
             }
-			labelDic.AddFilename(filename);
+			lock(lockobject)
+				labelDic.AddFilename(filename);
 			EraStreamReader eReader = new EraStreamReader(Config.UseRenameFile && ParserMediator.RenameDic != null);
 			if (!eReader.Open(filepath, filename))
 			{
@@ -463,9 +464,11 @@ namespace MinorShift.Emuera.GameProc
                 // 여기서 setLabelsArg()를 처리.
                 foreach (var label in tempFunctionLabels)
                 {
-                    setLabelsArg(label);
-					lock(lockobject)
-	                    labelDic.SortLabel(label);
+					lock (lockobject)
+					{
+						setLabelsArg(label);
+						labelDic.SortLabel(label);
+					}
                 }
                 // 지연로딩으로 부르는 경우에만 여기서 처리하고, 초기 로딩시에는 #FUNCTION 때문에 일괄 처리해야함.
                 if (isLazyLoading)
@@ -591,7 +594,7 @@ namespace MinorShift.Emuera.GameProc
 					int length = argsRow.Length / 2;
 					args = new VariableTerm[length];
                     defs = new SingleTerm[length];
-					for (int i = 0; i < length; i++)
+                    for (int i = 0; i < length; i++)
 					{
 						VariableTerm vTerm = null;
 						SingleTerm def = null;
@@ -624,7 +627,7 @@ namespace MinorShift.Emuera.GameProc
 							if (maxArgs < vTerm.getEl1forArg + 1)
 								maxArgs = vTerm.getEl1forArg + 1;
 						}
-						bool canDef = (vTerm.Identifier.Code == VariableCode.ARG || vTerm.Identifier.Code == VariableCode.ARGS || vTerm.Identifier.IsPrivate);
+                        bool canDef = (vTerm.Identifier.Code == VariableCode.ARG || vTerm.Identifier.Code == VariableCode.ARGS || vTerm.Identifier.IsPrivate);
 						term = argsRow[i * 2 + 1];
 						if (term is NullTerm)
 						{
