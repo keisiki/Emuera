@@ -123,7 +123,6 @@ namespace MinorShift.Emuera.GameProc
 						case "DIMS":
 							//1822 #DIMは保留しておいて後でまとめてやる
 							{
-								
 								WordCollection wc = LexicalAnalyzer.Analyse(st, LexEndWith.EoL, LexAnalyzeFlag.AllowAssignment);
                                 lock (hdlockobject1)
                                     dimlines.Enqueue(new DimLineWC(wc, sharpID == "DIMS", false, position));
@@ -245,8 +244,11 @@ namespace MinorShift.Emuera.GameProc
 					{
 						if (string.Equals(word.Code, argID[i], Config.SCVariable))
 						{
-							destWc.Remove();
-							destWc.Insert(new MacroWord(i));
+							lock (hdlockobject2)
+							{
+								destWc.Remove();
+								destWc.Insert(new MacroWord(i));
+							}
 							break;
 						}
 					}

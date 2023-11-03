@@ -516,7 +516,8 @@ namespace MinorShift.Emuera.GameData.Variable
 			foreach (VariableLocal local in localvarTokenDic.Values)
 				local.SetDefault();
 			foreach (UserDefinedVariableToken var in userDefinedStaticVarList)
-				var.SetDefault();
+				if (var != null)
+					var.SetDefault();
 		}
 
 		public void ClearLocalValue()

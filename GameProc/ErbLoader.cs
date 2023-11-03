@@ -21,6 +21,7 @@ namespace MinorShift.Emuera.GameProc
         private object lockobject = new object ();
         private object lockobject2 = new object();
         private object lockobject3 = new object();
+        private object lockscanningline = new object();
         public ErbLoader(EmueraConsole main, ExpressionMediator exm, Process proc)
 		{
 			output = main;
@@ -100,7 +101,8 @@ namespace MinorShift.Emuera.GameProc
 			}
 			finally
 			{
-				parentProcess.scaningLine = null;
+                lock(lockscanningline)
+					parentProcess.scaningLine = null;
 			}
             isOnlyEvent.Clear();
 			return noError;
@@ -117,8 +119,9 @@ namespace MinorShift.Emuera.GameProc
             noError = true;
 			labelDic = labelDictionary;
 			//labelDic.Initialized = false;
-			foreach (string fpath in path)
-			{
+			//foreach (string fpath in path)
+			//{
+			string fpath = path[0];
 				if (fpath.StartsWith(Program.ErbDir, Config.SCIgnoreCase) && !Program.AnalysisMode)
 					fname = fpath.Substring(Program.ErbDir.Length);
 				else
@@ -127,16 +130,12 @@ namespace MinorShift.Emuera.GameProc
 					output.PrintSystemLine(fname + "読み込み中・・・");
 				System.Windows.Forms.Application.DoEvents();
                 loadErb(fpath, fname, isOnlyEvent,true);
-			}
+			//}
             if (Program.AnalysisMode)
                 output.NewLine();
             ParserMediator.FlushWarningList();
-			//setLabelsArg();
-			ParserMediator.FlushWarningList();
-			//labelDic.Initialized = true;
-            //checkScript();
-			ParserMediator.FlushWarningList();
-			parentProcess.scaningLine = null;
+            lock (lockscanningline)
+                parentProcess.scaningLine = null;
             isOnlyEvent.Clear();
             return noError;
 		}
@@ -368,64 +367,61 @@ namespace MinorShift.Emuera.GameProc
 					}
 					if ((st.Current == '$') || (st.Current == '@'))
 					{
-						//lock (lockobject)
-						//{
-							bool isFunction = (st.Current == '@');
-							nextLine = LogicalLineParser.ParseLabelLine(st, position, output);
-							if (isFunction)
+						bool isFunction = (st.Current == '@');
+						nextLine = LogicalLineParser.ParseLabelLine(st, position, output);
+						if (isFunction)
+						{
+							FunctionLabelLine label = (FunctionLabelLine)nextLine;
+							lastLabelLine = label;
+							if (label is InvalidLabelLine)
 							{
-								FunctionLabelLine label = (FunctionLabelLine)nextLine;
-								lastLabelLine = label;
-								if (label is InvalidLabelLine)
+								noError = false;
+								ParserMediator.Warn(nextLine.ErrMes, position, 2);
+								lock (lockobject2)
+									labelDic.AddInvalidLabel(label);
+							}
+							else// if (label is FunctionLabelLine)
+							{
+								lock (lockobject2)
 								{
-									noError = false;
-									ParserMediator.Warn(nextLine.ErrMes, position, 2);
-									lock (lockobject2)
-										labelDic.AddInvalidLabel(label);
+									labelDic.AddLabel(label);
+									tempFunctionLabels.Add(label);
 								}
-								else// if (label is FunctionLabelLine)
+								if (!label.IsEvent && (Config.WarnNormalFunctionOverloading || Program.AnalysisMode))
 								{
-									lock (lockobject2)
+									FunctionLabelLine seniorLabel = labelDic.GetSameNameLabel(label);
+									if (seniorLabel != null)
 									{
-										labelDic.AddLabel(label);
-										tempFunctionLabels.Add(label);
+										//output.NewLine();
+										ParserMediator.Warn("関数@" + label.LabelName + "は既に定義(" + seniorLabel.Position.Filename + "の" + seniorLabel.Position.LineNo.ToString() + "行目)されています", position, 1);
+										funcCount = -1;
 									}
-									if (!label.IsEvent && (Config.WarnNormalFunctionOverloading || Program.AnalysisMode))
-									{
-										FunctionLabelLine seniorLabel = labelDic.GetSameNameLabel(label);
-										if (seniorLabel != null)
-										{
-											//output.NewLine();
-											ParserMediator.Warn("関数@" + label.LabelName + "は既に定義(" + seniorLabel.Position.Filename + "の" + seniorLabel.Position.LineNo.ToString() + "行目)されています", position, 1);
-											funcCount = -1;
-										}
-									}
-									funcCount++;
-									if (Program.AnalysisMode && (Config.PrintCPerLine > 0 && (funcCount % Config.PrintCPerLine) == 0))
-									{
-										output.NewLine();
-										output.PrintSystemLine("　");
-									}
+								}
+								funcCount++;
+								if (Program.AnalysisMode && (Config.PrintCPerLine > 0 && (funcCount % Config.PrintCPerLine) == 0))
+								{
+									output.NewLine();
+									output.PrintSystemLine("　");
 								}
 							}
-							else
+						}
+						else
+						{
+							if (nextLine is GotoLabelLine)
 							{
-								if (nextLine is GotoLabelLine)
-								{
 									
-									GotoLabelLine gotoLabel = (GotoLabelLine)nextLine;
-									gotoLabel.ParentLabelLine = lastLabelLine;
-									lock (lockobject3)
+								GotoLabelLine gotoLabel = (GotoLabelLine)nextLine;
+								gotoLabel.ParentLabelLine = lastLabelLine;
+								lock (lockobject3)
+								{
+									if (lastLabelLine != null && !labelDic.AddLabelDollar(gotoLabel))
 									{
-										if (lastLabelLine != null && !labelDic.AddLabelDollar(gotoLabel))
-										{
-											ScriptPosition pos = labelDic.GetLabelDollar(gotoLabel.LabelName, lastLabelLine).Position;
-											ParserMediator.Warn("ラベル名$" + gotoLabel.LabelName + "は既に同じ関数内(" + pos.Filename + "の" + pos.LineNo.ToString() + "行目)で使用されています", position, 2);
-										}
+										ScriptPosition pos = labelDic.GetLabelDollar(gotoLabel.LabelName, lastLabelLine).Position;
+										ParserMediator.Warn("ラベル名$" + gotoLabel.LabelName + "は既に同じ関数内(" + pos.Filename + "の" + pos.LineNo.ToString() + "行目)で使用されています", position, 2);
 									}
 								}
 							}
-						//}
+						}
 						if (nextLine is InvalidLine)
 						{
 							noError = false;
@@ -507,8 +503,8 @@ namespace MinorShift.Emuera.GameProc
 			{
 				if (label.Arg != null)
 					return;
-				lock (lockobject)
-				{
+                lock (lockscanningline)
+                {
 					parentProcess.scaningLine = label;
 					parseLabel(label);
 				}
@@ -525,7 +521,8 @@ namespace MinorShift.Emuera.GameProc
 			}
 			finally
 			{
-				parentProcess.scaningLine = null;
+                lock (lockscanningline)
+                    parentProcess.scaningLine = null;
 			}
 		}
 
@@ -892,7 +889,8 @@ namespace MinorShift.Emuera.GameProc
 			}
 			finally
 			{
-				parentProcess.scaningLine = null;
+                lock (lockscanningline)
+                    parentProcess.scaningLine = null;
 			}
 
 		}
@@ -910,7 +908,8 @@ namespace MinorShift.Emuera.GameProc
 			while (true)
 			{
 				nextLine = nextLine.NextLine;
-				parentProcess.scaningLine = nextLine;
+                lock (lockscanningline)
+                    parentProcess.scaningLine = nextLine;
                 if ((nextLine is NullLine) || (nextLine is FunctionLabelLine))
                     break;
                 InstructionLine baseFunc = nestStack.Count == 0 ? null : nestStack.Peek();
@@ -1463,7 +1462,8 @@ namespace MinorShift.Emuera.GameProc
             {
                 nextLine = nextLine.NextLine;
                 InstructionLine func = nextLine as InstructionLine;
-                parentProcess.scaningLine = nextLine;
+                lock (lockscanningline)
+                    parentProcess.scaningLine = nextLine;
                 if (func == null)
                 {
                     if ((nextLine is NullLine) || (nextLine is FunctionLabelLine))

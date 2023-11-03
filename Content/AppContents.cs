@@ -17,8 +17,6 @@ namespace MinorShift.Emuera.Content
 		}
 		static Dictionary<string, AContentFile> resourceDic = new Dictionary<string, AContentFile>();
 		static Dictionary<string, ASprite> imageDictionary = new Dictionary<string, ASprite>();
-        static Dictionary<string, string[]> imageDictionary2 = new Dictionary<string, string[]>();
-        static Dictionary<string, string> imageDictionary3 = new Dictionary<string, string>();
         static Dictionary<int, GraphicsImage> gList;
 
 		//static public T GetContent<T>(string name)where T :AContentItem
@@ -148,7 +146,7 @@ namespace MinorShift.Emuera.Content
 									+ "適切な libwebp_" + (IntPtr.Size == 4 ? "x86" : "x64") + ".dll が exe と同じフォルダにあるか確認してください。", sp, 3);
 				return false;
 			}
-            catch (Exception e)
+            catch
             {
                 return false;
 				//throw new CodeEE("リソースファイルのロード中にエラーが発生しました");
